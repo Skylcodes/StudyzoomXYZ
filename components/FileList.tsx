@@ -1,14 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Document } from '@/types/Document';
+import { DocumentWithTags } from '@/types/Document';
 import FilePreview from './FilePreview';
 import { FileText, Search } from 'lucide-react';
 
 interface FileListProps {
-  documents: Document[];
+  documents: DocumentWithTags[];
   onDelete?: (documentId: string) => void;
-  onView?: (document: Document) => void;
+  onView?: (document: DocumentWithTags) => void;
+  onEditTags?: (document: DocumentWithTags) => void;
   isLoading?: boolean;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
@@ -19,6 +20,7 @@ export default function FileList({
   documents, 
   onDelete, 
   onView, 
+  onEditTags,
   isLoading = false,
   searchQuery = '',
   onSearchChange,
@@ -94,6 +96,7 @@ export default function FileList({
                 document={document}
                 onDelete={onDelete}
                 onView={onView}
+                onEditTags={onEditTags}
               />
             ))}
           </div>

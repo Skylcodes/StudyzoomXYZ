@@ -29,7 +29,7 @@ export default function DashboardSidebar({ collapsed, onToggleCollapse }: Dashbo
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Library', href: '/dashboard/library', icon: <FileText size={20} /> },
-    { name: 'Team', href: '/dashboard/team', icon: <Users size={20} /> },
+    { name: 'Notes', href: '/dashboard/notes', icon: <Users size={20} /> },
     { name: 'Analytics', href: '/dashboard/analytics', icon: <BarChart2 size={20} /> },
     { name: 'Settings', href: '/dashboard/settings', icon: <Settings size={20} /> },
   ];

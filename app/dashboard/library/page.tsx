@@ -2,16 +2,20 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Document, UploadProgress } from '@/types/Document';
+import { DocumentWithTags, Tag, UploadProgress } from '@/types/Document';
 import { 
-  getUserDocuments, 
   createDocument, 
   uploadFileToStorage, 
   updateDocumentProgress,
   deleteDocument,
   generateSafeFilename,
   checkStorageSetup,
-  getDocument
+  getDocument,
+  getUserDocumentsWithTags,
+  getUserTags,
+  createTag,
+  assignTagsToDocument,
+  deleteTag
 } from '@/lib/documents';
 import FileUploadZone from '@/components/FileUploadZone';
 import FileList from '@/components/FileList';
@@ -21,10 +25,15 @@ import StorageDebugPanel from '@/components/StorageDebugPanel';
 import StorageQuickFix from '@/components/StorageQuickFix';
 import { toast } from 'react-hot-toast';
 import { supabase } from '@/utils/supabase';
+import TagFilterBar from '@/components/TagFilterBar';
+import TagCreateInput from '@/components/TagCreateInput';
+import TagEditModal from '@/components/TagEditModal';
 
 export default function LibraryPage() {
   const { user } = useAuth();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<DocumentWithTags[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [uploads, setUploads] = useState<UploadProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,31 +43,38 @@ export default function LibraryPage() {
     checked: boolean;
   }>({ isConfigured: false, checked: false });
   const [isCheckingStorage, setIsCheckingStorage] = useState(false);
+  const [tagLoading, setTagLoading] = useState(false);
+  // Add state for tag editing modal
+  const [editingTagsDoc, setEditingTagsDoc] = useState<DocumentWithTags | null>(null);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [tagEditLoading, setTagEditLoading] = useState(false);
 
-  // Load user documents
-  const loadDocuments = useCallback(async () => {
+  // Load user documents and tags
+  const loadDocumentsAndTags = useCallback(async () => {
     if (!user?.id) return;
-    
     setIsLoading(true);
     try {
-      const docs = await getUserDocuments(user.id);
+      const [docs, userTags] = await Promise.all([
+        getUserDocumentsWithTags(user.id),
+        getUserTags(user.id)
+      ]);
       // Filter out documents whose files are missing in storage
-      const filteredDocs: Document[] = [];
+      const filteredDocs: DocumentWithTags[] = [];
       for (const doc of docs) {
         try {
-          // Try to create a signed URL for the file (fast, doesn't download the file)
           const { data, error } = await supabase.storage.from('documents').createSignedUrl(doc.storage_path, 60);
           if (!error && data?.signedUrl) {
             filteredDocs.push(doc);
           }
-        } catch (err) {
+        } catch {
           // Ignore missing files
         }
       }
       setDocuments(filteredDocs);
+      setTags(userTags);
     } catch (error) {
-      console.error('Error loading documents:', error);
-      toast.error('Failed to load documents');
+      console.error('Error loading documents/tags:', error);
+      toast.error('Failed to load documents or tags');
     } finally {
       setIsLoading(false);
     }
@@ -98,9 +114,9 @@ export default function LibraryPage() {
   }, [storageStatus.isConfigured, storageStatus.checked]);
 
   useEffect(() => {
-    loadDocuments();
+    loadDocumentsAndTags();
     checkStorage();
-  }, [loadDocuments, checkStorage]);
+  }, [loadDocumentsAndTags, checkStorage]);
 
   // Start document processing
   const startDocumentProcessing = useCallback(async (documentId: string, fileType: string) => {
@@ -261,7 +277,7 @@ export default function LibraryPage() {
             setUploads(prev => prev.filter((_, idx) => idx !== uploadIndex));
             toast.success(`${file.name} processed and ready!`);
             // Reload documents to show the new ready document
-            loadDocuments();
+            loadDocumentsAndTags();
             processingDone = true;
           } else if (latestDoc?.status === 'failed') {
             setUploads(prev => prev.map((upload, idx) => idx === uploadIndex ? { ...upload, status: 'failed', error: 'Processing failed' } : upload));
@@ -291,8 +307,8 @@ export default function LibraryPage() {
     }
 
     // Reload documents to show new uploads
-    setTimeout(loadDocuments, 1000);
-  }, [user?.id, uploads.length, loadDocuments, startDocumentProcessing, storageStatus, checkStorage]);
+    setTimeout(loadDocumentsAndTags, 1000);
+  }, [user?.id, uploads.length, loadDocumentsAndTags, startDocumentProcessing, storageStatus, checkStorage]);
 
   // Handle upload retry
   const handleRetryUpload = useCallback((uploadIndex: number) => {
@@ -330,7 +346,7 @@ export default function LibraryPage() {
   }, []);
 
   // Handle document view
-  const handleViewDocument = useCallback((document: Document) => {
+  const handleViewDocument = useCallback((document: DocumentWithTags) => {
     // For now, just show a toast. In the future, this could open a document viewer
     toast.success(`Opening ${document.original_filename}...`);
   }, []);
@@ -340,15 +356,94 @@ export default function LibraryPage() {
     await checkStorage();
   }, [checkStorage]);
 
+  // Handle tag creation
+  const handleCreateTag = async (name: string) => {
+    if (!user?.id) return;
+    setTagLoading(true);
+    try {
+      const newTag = await createTag(user.id, name);
+      if (newTag) {
+        setTags(prev => [...prev, newTag]);
+        toast.success(`Tag "${name}" added!`);
+      } else {
+        toast.error('Failed to add tag');
+      }
+    } catch {
+      toast.error('Failed to add tag');
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  // Handler to open tag edit modal
+  const handleEditTags = (doc: DocumentWithTags) => {
+    setEditingTagsDoc(doc);
+    setShowTagModal(true);
+  };
+
+  const handleSaveTags = async (selectedTagIds: string[]) => {
+    if (!editingTagsDoc) return;
+    setTagEditLoading(true);
+    try {
+      const success = await assignTagsToDocument(editingTagsDoc.id, selectedTagIds);
+      if (success) {
+        // Update document in state
+        setDocuments(prev => prev.map(doc =>
+          doc.id === editingTagsDoc.id
+            ? { ...doc, tags: tags.filter(t => selectedTagIds.includes(t.id)) }
+            : doc
+        ));
+        toast.success('Tags updated!');
+        setShowTagModal(false);
+        setEditingTagsDoc(null);
+      } else {
+        toast.error('Failed to update tags');
+      }
+    } catch {
+      toast.error('Failed to update tags');
+    } finally {
+      setTagEditLoading(false);
+    }
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    setTagLoading(true);
+    try {
+      const success = await deleteTag(tagId);
+      if (success) {
+        setTags(prev => prev.filter(t => t.id !== tagId));
+        setDocuments(prev => prev.map(doc => ({ ...doc, tags: doc.tags.filter(t => t.id !== tagId) })));
+        toast.success('Tag deleted!');
+      } else {
+        toast.error('Failed to delete tag');
+      }
+    } catch {
+      toast.error('Failed to delete tag');
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  // Filter documents by selected tag
+  const filteredDocuments = selectedTag
+    ? documents.filter(doc => doc.tags.some(tag => tag.id === selectedTag))
+    : documents;
+
   return (
-    <div className="flex-1 space-y-6 p-4 pt-6">
+    <div className="flex-1 space-y-8 p-8 pt-10 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Document Library</h1>
-          <p className="text-slate-400 mt-1">Upload and manage your study materials</p>
+          <h1 className="text-4xl font-extrabold text-white tracking-tight font-display drop-shadow-lg">Document Library</h1>
+          <p className="text-slate-400 mt-2 text-lg font-medium">Upload and manage your study materials</p>
         </div>
       </div>
+
+      {/* Tag Create Input */}
+      <TagCreateInput onCreate={handleCreateTag} loading={tagLoading} disabled={isLoading} existingTags={tags} />
+
+      {/* Tag Filter Bar */}
+      <TagFilterBar tags={tags} selectedTag={selectedTag} onSelectTag={setSelectedTag} onDeleteTag={handleDeleteTag} />
 
       {/* Quick Storage Recheck */}
       {storageStatus.checked && !storageStatus.isConfigured && (
@@ -399,13 +494,25 @@ export default function LibraryPage() {
 
       {/* Document List */}
       <FileList
-        documents={documents}
+        documents={filteredDocuments}
         onDelete={handleDeleteDocument}
         onView={handleViewDocument}
+        onEditTags={handleEditTags}
         isLoading={isLoading}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
+
+      {editingTagsDoc && (
+        <TagEditModal
+          open={showTagModal}
+          onClose={() => { setShowTagModal(false); setEditingTagsDoc(null); }}
+          document={editingTagsDoc}
+          allTags={tags}
+          onSave={handleSaveTags}
+          loading={tagEditLoading}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDocumentProcessingJobs } from '@/lib/documents';
+import { getDocumentProcessingJobs } from '@/lib/documents.server';
 
 export async function GET(
   request: NextRequest,

@@ -186,3 +186,21 @@ export const DEFAULT_VALIDATION_RULES: FileValidationRules = {
   allowedTypes: Object.keys(SUPPORTED_FILE_TYPES),
   maxFiles: 10 // max 10 files per batch
 };
+
+/**
+ * Represents a tag for documents
+ */
+export interface Tag {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Document with tags relation
+ */
+export interface DocumentWithTags extends Document {
+  tags: Tag[];
+}

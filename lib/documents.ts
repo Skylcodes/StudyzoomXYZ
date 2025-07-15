@@ -1,11 +1,8 @@
 'use client';
 
 import { supabase } from '@/utils/supabase';
-import { getSupabaseAdmin } from '@/utils/supabase-admin';
-import { Document, DocumentProcessingJob, SUPPORTED_FILE_TYPES, DEFAULT_VALIDATION_RULES } from '@/types/Document';
+import { Document, SUPPORTED_FILE_TYPES, DEFAULT_VALIDATION_RULES, Tag, DocumentWithTags } from '@/types/Document';
 import { debugStorageError } from '@/utils/debug';
-
-const adminClient = getSupabaseAdmin();
 
 /**
  * File validation utilities
@@ -346,5 +343,193 @@ export async function getDocumentDownloadUrl(storagePath: string): Promise<strin
   } catch (err) {
     console.error('Error getting download URL:', err);
     return null;
+  }
+}
+
+/**
+ * Get all tags for a user
+ */
+export async function getUserTags(userId: string): Promise<Tag[]> {
+  try {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .eq('user_id', userId)
+      .order('name', { ascending: true });
+    if (error) {
+      console.error('Error fetching tags:', error);
+      return [];
+    }
+    return data as Tag[];
+  } catch (err) {
+    console.error('Error in getUserTags:', err);
+    return [];
+  }
+}
+
+/**
+ * Create a new tag for a user
+ */
+export async function createTag(userId: string, name: string): Promise<Tag | null> {
+  try {
+    const { data, error } = await supabase
+      .from('tags')
+      .insert([{ user_id: userId, name }])
+      .select()
+      .single();
+    if (error) {
+      console.error('Error creating tag:', error);
+      return null;
+    }
+    return data as Tag;
+  } catch (err) {
+    console.error('Error in createTag:', err);
+    return null;
+  }
+}
+
+/**
+ * Assign multiple tags to a document (overwrites existing tags)
+ */
+export async function assignTagsToDocument(documentId: string, tagIds: string[]): Promise<boolean> {
+  try {
+    // Remove existing tags
+    const { error: delError } = await supabase
+      .from('document_tags')
+      .delete()
+      .eq('document_id', documentId);
+    if (delError) {
+      console.error('Error removing old tags:', delError);
+      return false;
+    }
+    // Insert new tags
+    if (tagIds.length === 0) return true;
+    const inserts = tagIds.map(tag_id => ({ document_id: documentId, tag_id }));
+    const { error: insError } = await supabase
+      .from('document_tags')
+      .insert(inserts);
+    if (insError) {
+      console.error('Error assigning tags:', insError);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error in assignTagsToDocument:', err);
+    return false;
+  }
+}
+
+/**
+ * Get a document and its tags
+ */
+export async function getDocumentWithTags(documentId: string): Promise<DocumentWithTags | null> {
+  try {
+    const { data: doc, error: docError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('id', documentId)
+      .single();
+    if (docError || !doc) {
+      console.error('Error fetching document:', docError);
+      return null;
+    }
+    const { data: tagLinks, error: tagLinksError } = await supabase
+      .from('document_tags')
+      .select('tag_id')
+      .eq('document_id', documentId);
+    if (tagLinksError) {
+      console.error('Error fetching document_tags:', tagLinksError);
+      return { ...doc, tags: [] };
+    }
+    const tagIds = tagLinks.map((t: { tag_id: string }) => t.tag_id);
+    let tags: Tag[] = [];
+    if (tagIds.length > 0) {
+      const { data: tagData, error: tagError } = await supabase
+        .from('tags')
+        .select('*')
+        .in('id', tagIds);
+      if (tagError) {
+        console.error('Error fetching tags:', tagError);
+      } else {
+        tags = tagData as Tag[];
+      }
+    }
+    return { ...(doc as Document), tags } as DocumentWithTags;
+  } catch (err) {
+    console.error('Error in getDocumentWithTags:', err);
+    return null;
+  }
+}
+
+/**
+ * Get all documents for a user, each with its tags
+ */
+export async function getUserDocumentsWithTags(userId: string): Promise<DocumentWithTags[]> {
+  try {
+    const { data: docs, error: docsError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (docsError || !docs) {
+      console.error('Error fetching documents:', docsError);
+      return [];
+    }
+    // Get all document IDs
+    const docIds = docs.map((d: Document) => d.id);
+    if (docIds.length === 0) return [];
+    // Get all document_tags for these documents
+    const { data: docTags, error: docTagsError } = await supabase
+      .from('document_tags')
+      .select('document_id, tag_id')
+      .in('document_id', docIds);
+    if (docTagsError) {
+      console.error('Error fetching document_tags:', docTagsError);
+      return docs.map((d: Document) => ({ ...d, tags: [] }));
+    }
+    // Get all tag IDs
+    const tagIds = [...new Set(docTags.map((dt: { tag_id: string }) => dt.tag_id))];
+    let tags: Tag[] = [];
+    if (tagIds.length > 0) {
+      const { data: tagData, error: tagError } = await supabase
+        .from('tags')
+        .select('*')
+        .in('id', tagIds);
+      if (tagError) {
+        console.error('Error fetching tags:', tagError);
+      } else {
+        tags = tagData as Tag[];
+      }
+    }
+    // Map tags to documents
+    const docIdToTags: Record<string, Tag[]> = {};
+    for (const doc of docs) {
+      const thisDocTagIds = docTags.filter((dt: { document_id: string }) => dt.document_id === doc.id).map((dt: { tag_id: string }) => dt.tag_id);
+      docIdToTags[doc.id] = tags.filter(t => thisDocTagIds.includes(t.id));
+    }
+    return docs.map((d: Document) => ({ ...d, tags: docIdToTags[d.id] || [] }));
+  } catch (err) {
+    console.error('Error in getUserDocumentsWithTags:', err);
+    return [];
+  }
+}
+
+/**
+ * Delete a tag by ID
+ */
+export async function deleteTag(tagId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('tags')
+      .delete()
+      .eq('id', tagId);
+    if (error) {
+      console.error('Error deleting tag:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error in deleteTag:', err);
+    return false;
   }
 }
