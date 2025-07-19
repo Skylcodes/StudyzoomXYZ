@@ -1,3 +1,6 @@
+---
+alwaysApply: false
+---
 🧠 Overall Idea
 This is a modern, all-in-one AI-powered academic support platform designed for students of all levels. It helps them study smarter, stay organized, and understand difficult concepts using cutting-edge AI.
 At its core, the app works by letting students upload study materials (like class notes, textbooks, PDFs, handwritten images, etc.), and then it automatically generates helpful tools such as flashcards, quizzes, summaries, and even a podcast or video. There’s also a general-purpose AI tutor chatbot, as well as document-specific chatbots that help students directly based on what they upload.
@@ -49,6 +52,316 @@ When a student opens a document, they can chat with the AI about that material o
 
 
 Useful for asking “Can you explain this section?” or “Make a mnemonic for this paragraph” or “Generate a test from this page.”
+
+You're now building the AI-Powered Summary & Document Chatbot feature for StudyZoom.
+
+🎯 Purpose:
+When a student clicks a document in their library, the system should:
+1. Generate a clean, helpful AI summary (only on first open)
+2. Display 5–10 key points
+3. Show a document-specific chatbot on the right
+
+📥 Document Open Logic:
+- First time:
+  - Parse the uploaded file using OCR if needed
+  - Send content to OpenAI to generate a summary and bullet points
+  - Cache the result (tied to document ID)
+- Next time:
+  - Load the **cached summary and key points** from the backend
+  - Do not regenerate unless triggered manually in the future
+
+🧠 Summary Content (from OpenAI):
+- Title (from filename or metadata)
+- Short multi-paragraph summary
+- Key bullet points (5–10)
+
+💬 Document-Specific Chatbot (Right Side):
+- Only uses the parsed content of the document for context
+- Does not answer unrelated questions
+- Includes 3 suggested prompts like:
+  • "Explain the key ideas"
+  • "Summarize this page"
+  • "Quiz me on this doc"
+- Use OpenAI to power responses with strict context window from this document only
+
+🎨 UI Layout:
+Match the design of TurboAI-style layouts:
+- **Left (2/3)**:
+  - Page title (e.g. “The Fall of the Ottoman Empire”)
+  - Row of tools/buttons (Flashcards, Quiz, Podcast)
+  - Then: AI-generated Summary & Bullet Points
+
+- **Right (1/3)**:
+  - Dedicated document chatbot
+  - Dark theme, clean bubble layout
+  - 3 suggested clickable prompt buttons
+  - Chat input field at the bottom
+
+📌 Tech Notes:
+- No need to reparse same doc on every open
+- Use same parsed content to power both summary and chat
+- Document metadata (user ID, doc ID, summary, keypoints, parsed text) should be stored
+- Parsed content must support PDF, images, scanned notes, PPT, etc.
+
+
+
+🔄 How Everything Connects (Workflow)
+Here’s how it works for a student:
+📥 Upload Workflow:
+Student uploads a PDF, textbook scan, image of notes, or class slides.
+
+
+App runs it through OCR (if needed) and extracts clean text.
+
+
+The system creates a document dashboard for this material with:
+
+
+Flashcards
+
+
+Summary
+
+
+Quizzes
+
+
+Practice test
+
+
+Podcast
+
+
+Brainrot video
+
+
+Document-specific chatbot
+
+
+🧑‍🎓 Study Workflow Example:
+Student uploads Chapter 3 of their History textbook.
+
+
+They review the summary and flashcards to get a quick overview.
+
+
+They take a short quiz and see where they’re weak.
+
+
+They ask the document chatbot, “Explain the Cold War section in simple terms.”
+
+
+They generate a podcast to listen to while walking.
+
+
+Before the exam, they use the practice test tool to simulate the test.
+
+
+🔄 General Workflow Example:
+A student comes to the app and just wants to ask for help with a math problem.
+
+
+They open the general chatbot, paste in the question, and the AI helps step-by-step.
+
+
+If they have a worksheet, they upload it and then switch to the document chatbot to get help just from that file.
+
+
+
+🗓️ Other Features
+📅 Smart Study Planner
+Students input their class subjects, test dates, and weak areas.
+
+
+The AI builds a custom study calendar.
+
+
+Sends reminders based on deadlines.
+
+
+Suggests which uploaded materials to review each day.
+
+
+Dynamically adjusts when sessions are missed or new uploads are added.
+
+
+🧠 Adaptive Learning Logic (for quizzes & tests)
+AI tracks student quiz/test performance.
+
+
+Automatically increases difficulty over time.
+
+
+Focuses more on weak areas.
+
+
+Skips mastered topics.
+
+
+
+
+
+
+💸 Monetization (for internal design purposes)
+Freemium: Basic features free, limit on uploads/tools.
+
+
+Subscription unlocks unlimited uploads and tools.
+
+
+Optional team/education plans for schools.
+
+
+
+🌐 App Structure Overview (Conceptual)
+Home Page: Overview of recent activity, recommended actions, upcoming events.
+
+
+Library: All uploaded documents, each with its own dashboard and tools.
+
+
+Tool Pages (per document): Flashcards, quiz, test, podcast, video, chatbot.
+
+
+Chat Area: Split into General Chatbot and Document Chatbot views.
+
+
+Study Planner: Calendar view with suggested tasks.
+
+
+User Profile: Tracks streaks, badges, XP, and progress.
+
+
+
+✅ Final Notes
+Everything should feel student-friendly, beautiful, and responsive.
+
+
+Prioritize simplicity and automation — users should barely need to click.
+
+
+Every feature should be connected to each other. For example:
+
+
+A quiz can be taken directly after reading the summary.
+
+
+The chatbot should be able to refer to the flashcards if asked.
+
+
+The planner can suggest “Take a quiz on Chapter 2.”
+
+
+
+Your job now:
+ You know how to code it — now build it exactly according to this vision. The product logic is here. You own the implementation.
+
+
+ Authentication/database: we are going to use supabase for backend, authentication and database and filestorage. And we are using stripe for payments. So here is how the authentication workflow will be: When i create an account, i get an verification email and proceed to click it and have my account verified. Then, i log in because my account is verified. If i create an account with an email that is already verified, i should get a message saying that my account is already created and then tells me to log in. Once I log in, the website will ask for my name which is required. Then it will ask for my phone number which is optional. Once I enter my name (and phone number depending if the users did it or not), it will get stored in the database in the users table. So in the users table, it should show their email, account id, name, phone number and other info that supabase already has built in. Btw, there are no free trials in my saas. There is a free plan, or a paid one for 10$ a month. So in the users table, it should also display what type of user they are if they are paid or free. and then there is an admin user which is me. I should be able to control which user has which role manually. btw i will add the billing, and paid users role functionality later at the end of the saas, so don't worry about that now. So when a free user subscribes to the paid plan, their role changes into paid. 
+
+File storage: supabase
+
+AI: CHATGPT🧠 Overall Idea
+This is a modern, all-in-one AI-powered academic support platform designed for students of all levels. It helps them study smarter, stay organized, and understand difficult concepts using cutting-edge AI.
+At its core, the app works by letting students upload study materials (like class notes, textbooks, PDFs, handwritten images, etc.), and then it automatically generates helpful tools such as flashcards, quizzes, summaries, and even a podcast or video. There’s also a general-purpose AI tutor chatbot, as well as document-specific chatbots that help students directly based on what they upload.
+The goal is to replace expensive tutors and clunky study tools with one beautifully connected app that does it all automatically.
+
+🧰 Tools & Modules (Think of These as the Core Pillars)
+Every uploaded study material gets the following tools generated automatically:
+Flashcard Generator – Pulls key terms, definitions, and concepts from the material.
+
+
+Summary Tool – Creates easy-to-read bullet-point summaries.
+
+
+Quiz Generator – Builds multiple-choice, short-answer, and fill-in-the-blank quizzes.
+
+
+Practice Test Generator – Creates full-length mock exams with varied question types.
+
+
+Podcast Generator – Turns the document into an audio lesson (using AI voice).
+
+
+Study Brainrot Video Generator – Makes TikTok/YouTube Shorts-style study videos using background gameplay + AI voiceover + subtitles.
+
+
+Each tool is tied directly to a specific uploaded document and appears in that document’s dashboard.
+
+🧩 AI Chatbots (Crucial Detail)
+There are two kinds of chatbots in the app:
+General Chatbot ("AI Study Buddy")
+
+
+Accessible across the entire app.
+
+
+Works like a general-purpose tutor: users can paste in questions, get explanations, help with assignments, etc.
+
+
+It does NOT have memory of uploaded documents unless the user includes the content in their prompt.
+
+
+Per-Document Chatbots
+
+
+Every uploaded document has its own chatbot trained on that specific content.
+
+
+When a student opens a document, they can chat with the AI about that material only.
+
+
+Useful for asking “Can you explain this section?” or “Make a mnemonic for this paragraph” or “Generate a test from this page.”
+
+You're now building the AI-Powered Summary & Document Chatbot feature for StudyZoom.
+
+🎯 Purpose:
+When a student clicks a document in their library, the system should:
+1. Generate a clean, helpful AI summary (only on first open)
+2. Display 5–10 key points
+3. Show a document-specific chatbot on the right
+
+📥 Document Open Logic:
+- First time:
+  - Parse the uploaded file using OCR if needed
+  - Send content to OpenAI to generate a summary and bullet points
+  - Cache the result (tied to document ID)
+- Next time:
+  - Load the **cached summary and key points** from the backend
+  - Do not regenerate unless triggered manually in the future
+
+🧠 Summary Content (from OpenAI):
+- Title (from filename or metadata)
+- Short multi-paragraph summary
+- Key bullet points (5–10)
+
+💬 Document-Specific Chatbot (Right Side):
+- Only uses the parsed content of the document for context
+- Does not answer unrelated questions
+- Includes 3 suggested prompts like:
+  • "Explain the key ideas"
+  • "Summarize this page"
+  • "Quiz me on this doc"
+- Use OpenAI to power responses with strict context window from this document only
+
+🎨 UI Layout:
+Match the design of TurboAI-style layouts:
+- **Left (2/3)**:
+  - Page title (e.g. “The Fall of the Ottoman Empire”)
+  - Row of tools/buttons (Flashcards, Quiz, Podcast)
+  - Then: AI-generated Summary & Bullet Points
+
+- **Right (1/3)**:
+  - Dedicated document chatbot
+  - Dark theme, clean bubble layout
+  - 3 suggested clickable prompt buttons
+  - Chat input field at the bottom
+
+📌 Tech Notes:
+- No need to reparse same doc on every open
+- Use same parsed content to power both summary and chat
+- Document metadata (user ID, doc ID, summary, keypoints, parsed text) should be stored
+- Parsed content must support PDF, images, scanned notes, PPT, etc.
 
 
 

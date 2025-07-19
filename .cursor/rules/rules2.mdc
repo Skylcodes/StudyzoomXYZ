@@ -1,7 +1,5 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 ---
 description: MUST FOLLOW THESE DIRECTIONS 24/7

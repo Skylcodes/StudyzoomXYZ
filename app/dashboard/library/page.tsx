@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import { DocumentWithTags, Tag, UploadProgress } from '@/types/Document';
 import { 
   createDocument, 
@@ -31,6 +32,7 @@ import TagEditModal from '@/components/TagEditModal';
 
 export default function LibraryPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [documents, setDocuments] = useState<DocumentWithTags[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -58,6 +60,9 @@ export default function LibraryPage() {
         getUserDocumentsWithTags(user.id),
         getUserTags(user.id)
       ]);
+      
+      console.log('Loaded documents:', docs.length, 'documents');
+      console.log('First document structure:', docs[0]);
       // Filter out documents whose files are missing in storage
       const filteredDocs: DocumentWithTags[] = [];
       for (const doc of docs) {
@@ -347,9 +352,15 @@ export default function LibraryPage() {
 
   // Handle document view
   const handleViewDocument = useCallback((document: DocumentWithTags) => {
-    // For now, just show a toast. In the future, this could open a document viewer
-    toast.success(`Opening ${document.original_filename}...`);
-  }, []);
+    // Navigate to document detail page
+    console.log('Navigating to document:', document.id, typeof document.id);
+    if (!document.id) {
+      console.error('Document ID is missing:', document);
+      toast.error('Cannot view document: ID is missing');
+      return;
+    }
+    router.push(`/dashboard/library/${document.id}`);
+  }, [router]);
 
   // Handle dismissing storage setup banner (and re-check storage)
   const handleDismissStorageBanner = useCallback(async () => {

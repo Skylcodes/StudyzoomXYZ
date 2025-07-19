@@ -130,8 +130,12 @@ export default function FilePreview({ document, onDelete, onView, onEditTags, cl
 
   return (
     <div className={`bg-slate-800/70 border border-slate-700 rounded-2xl overflow-hidden hover:border-blue-600 transition-colors shadow-xl backdrop-blur-md ${className}`} style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.25)' }}>
-      {/* Thumbnail/Preview */}
-      <div className="relative h-32 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 flex items-center justify-center rounded-t-2xl">
+      {/* Thumbnail/Preview - Make it clickable */}
+      <div 
+        className="relative h-32 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 flex items-center justify-center rounded-t-2xl cursor-pointer hover:bg-gradient-to-br hover:from-slate-800 hover:via-slate-700 hover:to-blue-900 transition-colors"
+        onClick={() => onView && onView(document)}
+        title="Click to view document"
+      >
         {thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img 
@@ -208,10 +212,19 @@ export default function FilePreview({ document, onDelete, onView, onEditTags, cl
 
         {/* Action Buttons */}
         <div className="flex space-x-2 mb-4">
-          {onView && document.status === 'ready' && (
+          {onView && (
             <button
               onClick={() => onView(document)}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
+              className={`flex-1 flex items-center justify-center px-3 py-2 text-white text-sm rounded transition-colors ${
+                document.status === 'ready' 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-slate-600 hover:bg-slate-700'
+              }`}
+              title={
+                document.status === 'ready' 
+                  ? 'View document with AI features' 
+                  : 'View document (AI features will be available after processing)'
+              }
             >
               <Eye className="h-4 w-4 mr-1" />
               View

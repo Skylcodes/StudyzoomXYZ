@@ -63,6 +63,26 @@ export interface Document {
   metadata: Record<string, any>;
   
   /**
+   * Document title (extracted from filename or AI-generated)
+   */
+  title?: string;
+  
+  /**
+   * AI-generated summary of the document content
+   */
+  summary?: string;
+  
+  /**
+   * AI-generated key points as array of strings
+   */
+  key_points?: string[];
+  
+  /**
+   * Extracted text content used for AI processing
+   */
+  parsed_text?: string;
+  
+  /**
    * Timestamp when document was created
    */
   created_at: string;
